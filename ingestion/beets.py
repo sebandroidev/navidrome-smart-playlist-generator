@@ -12,7 +12,6 @@ def _open_ro(db_path: str) -> sqlite3.Connection:
     uri = f"file:{path}?mode=ro"
     con = sqlite3.connect(uri, uri=True, timeout=10)
     con.row_factory = sqlite3.Row
-    con.execute("PRAGMA journal_mode=WAL")
     return con
 
 
