@@ -1,0 +1,25 @@
+version: "3.9"
+
+services:
+  orly-jams:
+    build: .
+    container_name: orly-jams
+    restart: unless-stopped
+    environment:
+      - NAVIDROME_URL=${NAVIDROME_URL:-http://host.docker.internal:4533}
+      - NAVIDROME_USER=${NAVIDROME_USER:-sebastien}
+      - NAVIDROME_PASS=${NAVIDROME_PASS:-sebastien}
+      - TG_BOT_TOKEN=${TG_BOT_TOKEN:-}
+      - TG_CHAT_ID=${TG_CHAT_ID:-}
+      - OLLAMA_HOST=${OLLAMA_HOST:-}
+      - LB_USERNAME=${LB_USERNAME:-}
+      - PORT=7070
+    volumes:
+      - /DATA/AppData/beets:/beets-db:ro        # beets SQLite (read-only)
+      - /media/sdb/Musics:/music:ro             # audio files for optional librosa
+      - /DATA/AppData/orly-jams:/data           # persistent state DB
+      - ./config.yml:/app/config.yml:ro
+    ports:
+      - "7070:7070"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

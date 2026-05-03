@@ -1,0 +1,56 @@
+navidrome:
+  url: "http://host.docker.internal:4533"
+  user: "sebastien"
+  pass: "sebastien"
+
+beets:
+  db_path: "/beets-db/musiclibrary.db"
+
+listenbrainz:
+  enabled: false
+  username: ""
+
+ollama:
+  enabled: false
+  host: "http://host.docker.internal:11434"
+  model: "gemma2:2b"
+
+telegram:
+  enabled: false
+  bot_token: ""
+  chat_id: ""
+
+scheduling:
+  daily_jam:
+    cron: "0 6 * * *"
+    track_count: 30
+  weekly_jam:
+    cron: "0 0 * * 1"
+    track_count: 50
+
+scoring:
+  weights:
+    play_count:      0.30
+    recency:         0.25
+    rating:          0.20
+    genre_affinity:  0.15
+    discovery_bonus: 0.10
+  recency_halflife_days: 7
+
+generation:
+  daily:
+    comfort_ratio: 0.60
+    exclude_played_within_hours: 48
+  weekly:
+    comfort_ratio: 0.40
+    exclude_last_n_weekly_playlists: 2
+
+audio_analysis:
+  enabled: false
+  cache_forever: true
+
+state_db_path: "/data/orly_jams.db"
+
+playlist_names:
+  daily: "🎵 Daily Jam"
+  weekly: "🗓 Weekly Jam"

@@ -1,0 +1,152 @@
+import logging
+import random
+from datetime import datetime, timezone, timedelta
+from config import AppConfig
+from state.db import StateDB
+from generation.constraints import apply_all
+
+log = logging.getLogger(__name__)
+
+
+def _hours_since(last_played: str | None) -> float:
+    if not last_played:
+        return float("inf")
+    try:
+        dt = datetime.fromisoformat(last_played.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return (datetime.now(timezone.utc) - dt).total_seconds() / 3600.0
+    except Exception:
+        return float("inf")
+
+
+def _split_comfort_discovery(
+    tracks: list[dict],
+    comfort_ratio: float,
+    exclude_ids: set[str],
+    exclude_played_within_hours: float = 0,
+) -> tuple[list[dict], list[dict]]:
+    """
+    comfort  = high-score tracks not recently played
+    discovery = low-play-count tracks from diverse genres, not in exclude_ids
+    """
+    eligible = [t for t in tracks if t.get("nav_id")]
+
+    # exclude tracks played very recently (for daily)
+    if exclude_played_within_hours > 0:
+        eligible = [
+            t for t in eligible
+            if _hours_since(t.get("last_played")) >= exclude_played_within_hours
+        ]
+
+    # exclude tracks from recent playlists (for weekly)
+    if exclude_ids:
+        eligible = [t for t in eligible if t.get("id") not in exclude_ids]
+
+    sorted_by_score = sorted(eligible, key=lambda t: t.get("composite_score", 0), reverse=True)
+    sorted_by_plays = sorted(eligible, key=lambda t: t.get("play_count") or 0)
+
+    n_comfort    = int(len(sorted_by_score) * comfort_ratio)
+    comfort_pool = sorted_by_score[:max(n_comfort, 1)]
+
+    # Discovery pool: least-played, genre-diverse
+    comfort_ids = {t["id"] for t in comfort_pool}
+    discovery_pool = [t for t in sorted_by_plays if t["id"] not in comfort_ids]
+
+    return comfort_pool, discovery_pool
+
+
+def _pick_genre_diverse(pool: list[dict], n: int) -> list[dict]:
+    """Pick n tracks preferring genre diversity (round-robin by genre)."""
+    if not pool or n <= 0:
+        return []
+    if len(pool) <= n:
+        return list(pool)
+
+    by_genre: dict[str, list[dict]] = {}
+    for t in pool:
+        g = (t.get("genre") or "unknown").lower()
+        by_genre.setdefault(g, []).append(t)
+
+    selected: list[dict] = []
+    genre_keys = list(by_genre.keys())
+    random.shuffle(genre_keys)
+    indices = {g: 0 for g in genre_keys}
+
+    while len(selected) < n:
+        added_any = False
+        for g in genre_keys:
+            if len(selected) >= n:
+                break
+            idx = indices[g]
+            if idx < len(by_genre[g]):
+                selected.append(by_genre[g][idx])
+                indices[g] += 1
+                added_any = True
+        if not added_any:
+            break
+
+    return selected
+
+
+class DailyJamStrategy:
+    def select(self, tracks: list[dict], cfg: AppConfig, db: StateDB) -> list[dict]:
+        n = cfg.daily.track_count
+        comfort_ratio = cfg.daily.comfort_ratio
+        exclude_hours = cfg.daily.exclude_played_within_hours
+
+        comfort_pool, discovery_pool = _split_comfort_discovery(
+            tracks, comfort_ratio,
+            exclude_ids=set(),
+            exclude_played_within_hours=exclude_hours,
+        )
+
+        n_comfort   = round(n * comfort_ratio)
+        n_discovery = n - n_comfort
+
+        # Top comfort picks (already sorted by score desc)
+        comfort_picks = comfort_pool[:n_comfort]
+
+        # Genre-diverse discovery picks
+        discovery_picks = _pick_genre_diverse(discovery_pool, n_discovery)
+
+        combined = comfort_picks + discovery_picks
+        random.shuffle(combined)
+
+        result = apply_all(combined)[:n]
+        log.info(
+            "Daily: selected %d tracks (%d comfort, %d discovery)",
+            len(result), len(comfort_picks), len(discovery_picks),
+        )
+        return result
+
+
+class WeeklyJamStrategy:
+    def select(self, tracks: list[dict], cfg: AppConfig, db: StateDB) -> list[dict]:
+        n = cfg.weekly.track_count
+        comfort_ratio = cfg.weekly.comfort_ratio
+        exclude_n = cfg.weekly.exclude_last_n_weekly_playlists
+
+        exclude_ids = db.get_recent_playlist_track_ids("weekly", exclude_n)
+
+        comfort_pool, discovery_pool = _split_comfort_discovery(
+            tracks, comfort_ratio,
+            exclude_ids=exclude_ids,
+            exclude_played_within_hours=0,
+        )
+
+        n_comfort   = round(n * comfort_ratio)
+        n_discovery = n - n_comfort
+
+        comfort_picks = comfort_pool[:n_comfort]
+        discovery_picks = _pick_genre_diverse(discovery_pool, n_discovery)
+
+        combined = comfort_picks + discovery_picks
+        random.shuffle(combined)
+
+        result = apply_all(combined)[:n]
+        log.info(
+            "Weekly: selected %d tracks (%d comfort, %d discovery, excl. %d prior ids)",
+            len(result), len(comfort_picks), len(discovery_picks), len(exclude_ids),
+        )
+        return result
