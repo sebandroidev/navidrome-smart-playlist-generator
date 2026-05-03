@@ -1,6 +1,6 @@
 """
-Content-based track similarity using beets metadata feature vectors.
-Cosine similarity on (genre_onehot, year_norm, bitrate_norm, bpm_norm).
+Content-based track similarity using beets metadata + optional librosa audio features.
+Cosine similarity on (genre_onehot, year_norm, bitrate_norm, bpm_norm[, energy, zcr, spectral_c]).
 No GPU required — pure numpy, fast up to ~50K tracks.
 """
 import logging
@@ -17,8 +17,10 @@ _JUNK_GENRES = {
 }
 
 _YEAR_MIN, _YEAR_MAX = 1960, 2026
-_BITRATE_MIN, _BITRATE_MAX = 64, 1411  # kbps
+_BITRATE_MIN, _BITRATE_MAX = 64, 1411    # kbps
 _BPM_MIN, _BPM_MAX = 40, 220
+_SC_MIN, _SC_MAX = 200, 6000             # spectral centroid Hz
+_ZCR_MIN, _ZCR_MAX = 0.0, 0.2           # zero crossing rate
 
 
 def _clean_genre(g: str | None) -> str:
@@ -65,18 +67,27 @@ def build_feature_matrix(tracks: list[dict]) -> tuple[np.ndarray, list[str], lis
         if g and g in genre_index:
             genre_vec[genre_index[g]] = 1.0
 
-        # scalar features (4 dims)
+        # scalar features from beets metadata (4 dims)
         year    = _norm(t.get("year"),    _YEAR_MIN,    _YEAR_MAX)
         bitrate = _norm(t.get("bitrate"), _BITRATE_MIN, _BITRATE_MAX)
         bpm     = _norm(t.get("bpm"),     _BPM_MIN,     _BPM_MAX)
         score   = float(t.get("composite_score") or 0.0)
 
-        row = genre_vec + [year, bitrate, bpm, score]
+        # optional librosa audio features (3 dims; 0.5 neutral fill when absent)
+        af = t.get("audio_features")
+        if isinstance(af, dict) and af:
+            energy  = float(af.get("energy", 0.5))
+            zcr     = _norm(af.get("zcr"),                _ZCR_MIN, _ZCR_MAX)
+            sc      = _norm(af.get("spectral_centroid"),  _SC_MIN,  _SC_MAX)
+        else:
+            energy, zcr, sc = 0.5, 0.5, 0.5
+
+        row = genre_vec + [year, bitrate, bpm, score, energy, zcr, sc]
         rows.append(row)
         track_ids.append(tid)
 
     if not rows:
-        return np.zeros((0, G + 4), dtype=np.float32), [], top_genres
+        return np.zeros((0, G + 7), dtype=np.float32), [], top_genres
 
     matrix = np.array(rows, dtype=np.float32)
 
@@ -85,8 +96,9 @@ def build_feature_matrix(tracks: list[dict]) -> tuple[np.ndarray, list[str], lis
     norms[norms == 0] = 1.0
     matrix /= norms
 
-    log.info("Similarity: built %dx%d feature matrix (%d genre dims)",
-             matrix.shape[0], matrix.shape[1], G)
+    af_count = sum(1 for t in tracks if isinstance(t.get("audio_features"), dict))
+    log.info("Similarity: built %dx%d feature matrix (%d genre dims, %d with audio features)",
+             matrix.shape[0], matrix.shape[1], G, af_count)
     return matrix, track_ids, top_genres
 
 

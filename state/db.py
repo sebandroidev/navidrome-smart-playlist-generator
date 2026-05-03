@@ -135,14 +135,25 @@ class StateDB:
     def get_all_tracks(self) -> list[dict]:
         with self._connect() as con:
             rows = con.execute("SELECT * FROM tracks").fetchall()
-        return [dict(r) for r in rows]
+        return [self._deserialize(dict(r)) for r in rows]
 
     def get_track(self, track_id: str) -> Optional[dict]:
         with self._connect() as con:
             row = con.execute(
                 "SELECT * FROM tracks WHERE id=?", (track_id,)
             ).fetchone()
-        return dict(row) if row else None
+        return self._deserialize(dict(row)) if row else None
+
+    @staticmethod
+    def _deserialize(row: dict) -> dict:
+        """Deserialize JSON columns back to Python objects."""
+        af = row.get("audio_features")
+        if isinstance(af, str):
+            try:
+                row["audio_features"] = json.loads(af)
+            except Exception:
+                row["audio_features"] = None
+        return row
 
     def track_count(self) -> int:
         with self._connect() as con:

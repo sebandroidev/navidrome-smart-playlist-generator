@@ -52,3 +52,10 @@ def discovery_bonus_signal(play_count: int) -> float:
     if play_count <= 2:
         return 0.3
     return 0.0
+
+
+def listenbrainz_signal(lb_listen_count: int, max_lb_plays: int) -> float:
+    """Log-normalized ListenBrainz listen count: 0–1. Zero when LB is disabled."""
+    if max_lb_plays <= 0 or lb_listen_count <= 0:
+        return 0.0
+    return math.log1p(lb_listen_count) / math.log1p(max_lb_plays)

@@ -143,6 +143,10 @@ def ingest_and_score(cfg: AppConfig, db: StateDB) -> list[dict]:
 
     tracks = _merge(nav_songs, beets_tracks)
 
+    if cfg.listenbrainz.enabled:
+        from ingestion.listenbrainz import enrich_tracks as lb_enrich
+        tracks = lb_enrich(tracks, cfg)
+
     if cfg.audio_analysis.enabled:
         from scoring.audio import analyze_tracks
         tracks = analyze_tracks(tracks, cfg.audio_analysis.cache_forever)

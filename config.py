@@ -44,11 +44,12 @@ class TelegramConfig:
 
 @dataclass
 class ScoringWeights:
-    play_count: float = 0.30
-    recency: float = 0.25
-    rating: float = 0.20
-    genre_affinity: float = 0.15
-    discovery_bonus: float = 0.10
+    play_count:      float = 0.27
+    recency:         float = 0.23
+    rating:          float = 0.18
+    genre_affinity:  float = 0.14
+    discovery_bonus: float = 0.08
+    lb_boost:        float = 0.10  # active only when listenbrainz.enabled; signal is 0 otherwise
 
 
 @dataclass
@@ -183,11 +184,12 @@ def _parse(raw: dict) -> AppConfig:
     w = s.get("weights", {})
     cfg.scoring = ScoringConfig(
         weights=ScoringWeights(
-            play_count=float(w.get("play_count", 0.30)),
-            recency=float(w.get("recency", 0.25)),
-            rating=float(w.get("rating", 0.20)),
-            genre_affinity=float(w.get("genre_affinity", 0.15)),
-            discovery_bonus=float(w.get("discovery_bonus", 0.10)),
+            play_count=float(w.get("play_count",      0.27)),
+            recency=float(w.get("recency",            0.23)),
+            rating=float(w.get("rating",              0.18)),
+            genre_affinity=float(w.get("genre_affinity",  0.14)),
+            discovery_bonus=float(w.get("discovery_bonus", 0.08)),
+            lb_boost=float(w.get("lb_boost",          0.10)),
         ),
         recency_halflife_days=float(s.get("recency_halflife_days", 7.0)),
     )
