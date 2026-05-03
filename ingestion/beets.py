@@ -27,7 +27,8 @@ def get_all_tracks(db_path: str) -> list[dict]:
         rows = con.execute("""
             SELECT
                 id, path, title, artist, albumartist, album,
-                genre, year, format, bitrate
+                genres, style, year, format, bitrate,
+                bpm, initial_key, length, samplerate
             FROM items
         """).fetchall()
     except Exception as exc:
