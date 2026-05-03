@@ -40,6 +40,13 @@ def start(cfg, db):
         except Exception as exc:
             log.error("Weekly Jam scheduler error: %s", exc, exc_info=True)
 
+    def _run_genre_mixes():
+        try:
+            from pipeline import run_genre_mixes_pipeline
+            run_genre_mixes_pipeline(cfg, db)
+        except Exception as exc:
+            log.error("Genre mixes scheduler error: %s", exc, exc_info=True)
+
     _scheduler.add_job(
         _run_daily,
         CronTrigger(**_cron_parts(cfg.daily.cron), timezone="UTC"),
@@ -58,9 +65,19 @@ def start(cfg, db):
         misfire_grace_time=3600,
     )
 
+    # Genre mixes: every Monday at 01:00 UTC (after weekly jam)
+    _scheduler.add_job(
+        _run_genre_mixes,
+        CronTrigger(day_of_week="mon", hour=1, minute=0, timezone="UTC"),
+        id="genre_mixes",
+        name="Genre Mixes",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+
     _scheduler.start()
     log.info(
-        "Scheduler started — daily: %s  weekly: %s",
+        "Scheduler started — daily: %s  weekly: %s  genre-mixes: mon 01:00",
         cfg.daily.cron, cfg.weekly.cron,
     )
 
@@ -72,6 +89,14 @@ def next_run(job_id: str) -> str | None:
     if job and job.next_run_time:
         return job.next_run_time.isoformat()
     return None
+
+
+def all_next_runs() -> dict[str, str | None]:
+    return {
+        "daily_jam":   next_run("daily_jam"),
+        "weekly_jam":  next_run("weekly_jam"),
+        "genre_mixes": next_run("genre_mixes"),
+    }
 
 
 def stop():

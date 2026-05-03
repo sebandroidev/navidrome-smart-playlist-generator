@@ -54,3 +54,5 @@ state_db_path: "/data/orly_jams.db"
 playlist_names:
   daily: "🎵 Daily Jam"
   weekly: "🗓 Weekly Jam"
+
+genre_cluster_count: 5   # number of genre mix playlists to generate

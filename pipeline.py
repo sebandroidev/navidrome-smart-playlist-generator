@@ -246,3 +246,21 @@ def preview_playlist(playlist_type: str, cfg: AppConfig, db: StateDB) -> list[di
         }
         for t in selected
     ]
+
+
+def run_genre_mixes_pipeline(cfg: AppConfig, db: StateDB) -> list[dict]:
+    """Ingest, score, then generate genre cluster playlists."""
+    import time
+    t0 = time.monotonic()
+
+    tracks = ingest_and_score(cfg, db)
+
+    from generation.genre_mixes import run_genre_mixes
+    results = run_genre_mixes(tracks, cfg, db)
+
+    del tracks
+    cache_mod.clear()
+
+    duration_ms = int((time.monotonic() - t0) * 1000)
+    log.info("Genre mixes pipeline done in %dms — %d playlists", duration_ms, len(results))
+    return results

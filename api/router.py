@@ -24,19 +24,17 @@ def init(cfg, db):
 
 # ── health ─────────────────────────────────────────────────────────────────
 
-@router.get("/health", response_model=HealthResponse)
+@router.get("/health")
 def health():
     import scheduler as sch
     return {
         "status": "ok",
         "last_run": {
-            "daily":  _db.last_run("daily"),
-            "weekly": _db.last_run("weekly"),
+            "daily":       _db.last_run("daily"),
+            "weekly":      _db.last_run("weekly"),
+            "genre_mixes": _db.last_run("genre_mix"),
         },
-        "next_run": {
-            "daily":  sch.next_run("daily_jam"),
-            "weekly": sch.next_run("weekly_jam"),
-        },
+        "next_run": sch.all_next_runs(),
         "library_size": _db.track_count(),
     }
 
@@ -177,3 +175,70 @@ def rescan(background_tasks: BackgroundTasks):
         ingest_and_score(_cfg, _db)
     background_tasks.add_task(_do)
     return {"accepted": True, "message": "Rescan started"}
+
+
+# ── genre clusters (P2) ────────────────────────────────────────────────────
+
+_clusters_running = False
+_clusters_last_result: list = []
+
+
+@router.post("/trigger/clusters")
+def trigger_clusters(background_tasks: BackgroundTasks):
+    global _clusters_running
+    if _clusters_running:
+        return {"accepted": False, "message": "Already running"}
+
+    def _do():
+        global _clusters_running, _clusters_last_result
+        _clusters_running = True
+        try:
+            from pipeline import run_genre_mixes_pipeline
+            _clusters_last_result = run_genre_mixes_pipeline(_cfg, _db)
+        except Exception as exc:
+            log.error("Genre mixes trigger failed: %s", exc, exc_info=True)
+        finally:
+            _clusters_running = False
+
+    background_tasks.add_task(_do)
+    return {"accepted": True, "message": "Genre mix generation started"}
+
+
+@router.get("/clusters")
+def get_clusters():
+    """Return last generated genre cluster results."""
+    return {
+        "running": _clusters_running,
+        "clusters": _clusters_last_result,
+        "last_run": _db.last_run("genre_mix"),
+    }
+
+
+@router.get("/clusters/preview")
+def preview_clusters():
+    """
+    Preview what clusters would be generated without pushing to Navidrome.
+    Requires scikit-learn + numpy to be installed.
+    """
+    tracks = _db.get_all_tracks()
+    if not tracks:
+        return {"clusters": [], "message": "No tracks in DB — run /rescan first"}
+    try:
+        from scoring.clustering import cluster_tracks
+        clusters = cluster_tracks(tracks)
+        return {
+            "clusters": [
+                {
+                    "name":        c["name"],
+                    "genres":      c["genres"],
+                    "track_count": len(c["tracks"]),
+                    "sample":      [
+                        {"artist": t.get("artist"), "title": t.get("title")}
+                        for t in c["tracks"][:5]
+                    ],
+                }
+                for c in clusters
+            ]
+        }
+    except ImportError:
+        return {"error": "scikit-learn not installed — add to requirements.txt"}

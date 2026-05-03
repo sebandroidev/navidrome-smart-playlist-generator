@@ -91,6 +91,7 @@ class AppConfig:
     weekly: WeeklyGenConfig = field(default_factory=WeeklyGenConfig)
     audio_analysis: AudioAnalysisConfig = field(default_factory=AudioAnalysisConfig)
     state_db_path: str = "/data/orly_jams.db"
+    genre_cluster_count: int = 5
     playlist_names: dict = field(default_factory=lambda: {
         "daily": "🎵 Daily Jam",
         "weekly": "🗓 Weekly Jam",
@@ -224,6 +225,9 @@ def _parse(raw: dict) -> AppConfig:
 
     if "state_db_path" in raw:
         cfg.state_db_path = raw["state_db_path"]
+
+    if "genre_cluster_count" in raw:
+        cfg.genre_cluster_count = int(raw["genre_cluster_count"])
 
     if "playlist_names" in raw:
         cfg.playlist_names.update(raw["playlist_names"])
