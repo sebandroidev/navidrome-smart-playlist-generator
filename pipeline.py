@@ -196,20 +196,25 @@ def run_pipeline(playlist_type: str, cfg: AppConfig, db: StateDB) -> dict:
     # Persist history
     db.save_playlist(playlist_type, [t["id"] for t in selected], pl_id)
 
+    track_count = len(selected)
     duration_ms = int((time.monotonic() - t0) * 1000)
     log.info("Pipeline: %s done in %dms — %d tracks → playlist %s",
-             playlist_type, duration_ms, len(selected), pl_id)
+             playlist_type, duration_ms, track_count, pl_id)
+
+    # Free large in-memory objects immediately — track lists are ~10 MB each
+    del tracks, selected
+    cache_mod.clear()
 
     # Telegram notification
     notifier.notify(
-        f"{playlist_name} refreshed — {len(selected)} tracks ready\n"
+        f"{playlist_name} refreshed — {track_count} tracks ready\n"
         f"_{dynamic_name}_",
         cfg,
     )
 
     return {
         "playlist_type":    playlist_type,
-        "track_count":      len(selected),
+        "track_count":      track_count,
         "nav_playlist_id":  pl_id,
         "name":             playlist_name,
         "dynamic_name":     dynamic_name,

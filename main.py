@@ -52,4 +52,13 @@ app.include_router(router)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 7070))
-    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=port,
+        reload=False,
+        workers=1,
+        loop="asyncio",   # avoid uvloop — saves ~15 MB on startup
+        http="h11",       # lighter HTTP parser than httptools
+        access_log=False, # reduce log overhead
+    )
