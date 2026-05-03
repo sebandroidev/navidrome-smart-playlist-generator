@@ -114,8 +114,13 @@ class DailyJamStrategy:
         n_discovery = n - n_comfort
         comfort_picks = comfort_pool[:n_comfort]
 
-        # P2: similarity-boosted discovery
-        all_exclude = {t["id"] for t in comfort_picks if t.get("id")}
+        # P2: similarity-boosted discovery — exclude comfort picks + recently played
+        recently_played = {
+            t["id"] for t in tracks
+            if t.get("id") and exclude_hours > 0
+            and _hours_since(t.get("last_played")) < exclude_hours
+        }
+        all_exclude = recently_played | {t["id"] for t in comfort_picks if t.get("id")}
         discovery_picks = _build_similarity_discovery(
             comfort_picks, tracks, all_exclude, n_discovery
         )

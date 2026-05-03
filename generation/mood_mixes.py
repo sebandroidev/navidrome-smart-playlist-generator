@@ -5,6 +5,7 @@ Works without librosa — falls back to BPM-only and genre hinting.
 """
 import logging
 from generation.constraints import deduplicate, filter_unmatched, fix_consecutive_artists
+from ingestion import navidrome as nav_mod
 
 log = logging.getLogger(__name__)
 
@@ -58,8 +59,6 @@ def _mood_bucket(track: dict) -> str:
 
 def run_mood_mixes(tracks: list[dict], cfg, db) -> list[dict]:
     """Classify, constrain, and push Chill / Flow / Energy playlists. Returns result list."""
-    from ingestion import navidrome as nav_mod
-
     buckets: dict[str, list[dict]] = {"chill": [], "flow": [], "energy": []}
     for t in tracks:
         if not t.get("nav_id"):
