@@ -58,6 +58,9 @@ def stats():
 _running: dict[str, bool] = {"daily": False, "weekly": False}
 _last_result: dict[str, dict] = {}
 
+_clusters_running = False
+_clusters_last_result: list = []
+
 
 def _trigger_bg(playlist_type: str):
     from pipeline import run_pipeline
@@ -70,6 +73,29 @@ def _trigger_bg(playlist_type: str):
         _last_result[playlist_type] = {"error": str(exc)}
     finally:
         _running[playlist_type] = False
+
+
+# NOTE: /trigger/clusters MUST be declared before /trigger/{playlist_type}
+# to avoid FastAPI routing "clusters" as the path parameter.
+@router.post("/trigger/clusters")
+def trigger_clusters(background_tasks: BackgroundTasks):
+    global _clusters_running
+    if _clusters_running:
+        return {"accepted": False, "message": "Already running"}
+
+    def _do():
+        global _clusters_running, _clusters_last_result
+        _clusters_running = True
+        try:
+            from pipeline import run_genre_mixes_pipeline
+            _clusters_last_result = run_genre_mixes_pipeline(_cfg, _db)
+        except Exception as exc:
+            log.error("Genre mixes trigger failed: %s", exc, exc_info=True)
+        finally:
+            _clusters_running = False
+
+    background_tasks.add_task(_do)
+    return {"accepted": True, "message": "Genre mix generation started"}
 
 
 @router.post("/trigger/{playlist_type}")
@@ -177,32 +203,8 @@ def rescan(background_tasks: BackgroundTasks):
     return {"accepted": True, "message": "Rescan started"}
 
 
+
 # ── genre clusters (P2) ────────────────────────────────────────────────────
-
-_clusters_running = False
-_clusters_last_result: list = []
-
-
-@router.post("/trigger/clusters")
-def trigger_clusters(background_tasks: BackgroundTasks):
-    global _clusters_running
-    if _clusters_running:
-        return {"accepted": False, "message": "Already running"}
-
-    def _do():
-        global _clusters_running, _clusters_last_result
-        _clusters_running = True
-        try:
-            from pipeline import run_genre_mixes_pipeline
-            _clusters_last_result = run_genre_mixes_pipeline(_cfg, _db)
-        except Exception as exc:
-            log.error("Genre mixes trigger failed: %s", exc, exc_info=True)
-        finally:
-            _clusters_running = False
-
-    background_tasks.add_task(_do)
-    return {"accepted": True, "message": "Genre mix generation started"}
-
 
 @router.get("/clusters")
 def get_clusters():
