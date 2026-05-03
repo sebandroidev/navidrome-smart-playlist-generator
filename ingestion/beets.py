@@ -44,6 +44,9 @@ def get_all_tracks(db_path: str) -> list[dict]:
             if isinstance(raw_path, bytes)
             else (raw_path or "")
         )
+        genre_raw = (r["genres"] or r["style"] or "").strip()
+        genre = genre_raw.split(";")[0].strip() or None
+
         tracks.append({
             "beets_id":   r["id"],
             "path":       path_str,
@@ -51,10 +54,13 @@ def get_all_tracks(db_path: str) -> list[dict]:
             "artist":     (r["artist"] or r["albumartist"] or "").strip(),
             "albumartist":(r["albumartist"] or "").strip(),
             "album":      (r["album"] or "").strip(),
-            "genre":      (r["genre"] or "").strip() or None,
+            "genre":      genre,
             "year":       r["year"] or None,
             "format":     (r["format"] or "").lower() or None,
             "bitrate":    r["bitrate"] or None,
+            "bpm":        r["bpm"] or None,
+            "initial_key":r["initial_key"] or None,
+            "duration":   r["length"] or None,
         })
 
     con.close()
