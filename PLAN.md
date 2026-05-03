@@ -290,14 +290,22 @@ Memory: 44 MB idle / 62 MB peak / 200 MB hard cap.
 
 ---
 
-### P4 — UX 📋 TODO
+### P4 — UX ✅ DONE
 
 | Component                    | Status | Notes                                            |
 |------------------------------|--------|--------------------------------------------------|
-| Time-of-day variants         | ⬜     | Morning / Evening / Late Night playlist slots    |
-| Mood playlists               | ⬜     | BPM + energy segmentation (Chill / Energy mix)   |
-| Telegram inline controls     | ⬜     | /trigger /preview via bot commands               |
-| Web config UI                | ⬜     | Lightweight HTML dashboard served from FastAPI   |
+| Mood playlists               | ✅     | BPM + energy → Chill / Flow / Energy (35 tracks) |
+| Mood mixes scheduled         | ✅     | Monday 02:00 UTC (after genre mixes)             |
+| /trigger/moods + /moods API  | ✅     | Same pattern as genre mixes                      |
+| Telegram bot commands        | ✅     | Long-poll, /daily /weekly /genres /moods /stats  |
+| Telegram /preview command    | ✅     | Shows top 5 tracks for daily or weekly           |
+| Web dashboard                | ✅     | Single HTML served at /, no external deps        |
+| Dashboard: stats + schedule  | ✅     | Library size, coverage, next run times           |
+| Dashboard: trigger buttons   | ✅     | Daily, Weekly, Genre Mixes, Mood Mixes, Rescan   |
+| Dashboard: history           | ✅     | Last 5 runs per playlist type                    |
+| Dashboard: cluster view      | ✅     | Genre clusters with track counts                 |
+| Dashboard: weight sliders    | ✅     | Live sliders, PATCH /config on save              |
+| Auto-refresh every 30s       | ✅     | All panels refresh without page reload           |
 
 ---
 

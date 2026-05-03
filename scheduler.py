@@ -47,6 +47,13 @@ def start(cfg, db):
         except Exception as exc:
             log.error("Genre mixes scheduler error: %s", exc, exc_info=True)
 
+    def _run_mood_mixes():
+        try:
+            from pipeline import run_mood_mixes_pipeline
+            run_mood_mixes_pipeline(cfg, db)
+        except Exception as exc:
+            log.error("Mood mixes scheduler error: %s", exc, exc_info=True)
+
     _scheduler.add_job(
         _run_daily,
         CronTrigger(**_cron_parts(cfg.daily.cron), timezone="UTC"),
@@ -75,9 +82,19 @@ def start(cfg, db):
         misfire_grace_time=3600,
     )
 
+    # Mood mixes: every Monday at 02:00 UTC (after genre mixes)
+    _scheduler.add_job(
+        _run_mood_mixes,
+        CronTrigger(day_of_week="mon", hour=2, minute=0, timezone="UTC"),
+        id="mood_mixes",
+        name="Mood Mixes",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+
     _scheduler.start()
     log.info(
-        "Scheduler started — daily: %s  weekly: %s  genre-mixes: mon 01:00",
+        "Scheduler started — daily: %s  weekly: %s  genre-mixes: mon 01:00  mood-mixes: mon 02:00",
         cfg.daily.cron, cfg.weekly.cron,
     )
 
@@ -96,6 +113,7 @@ def all_next_runs() -> dict[str, str | None]:
         "daily_jam":   next_run("daily_jam"),
         "weekly_jam":  next_run("weekly_jam"),
         "genre_mixes": next_run("genre_mixes"),
+        "mood_mixes":  next_run("mood_mixes"),
     }
 
 

@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Orly Jams</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0d0d0d;
+      --surface:  #1a1a1a;
+      --surface2: #222;
+      --border:   #2e2e2e;
+      --accent:   #1db954;
+      --accent2:  #158a3e;
+      --danger:   #e05260;
+      --text:     #e0e0e0;
+      --muted:    #888;
+      --radius:   10px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      padding: 20px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    /* ── header ── */
+    header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 18px 0 24px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 24px;
+    }
+    header h1 { font-size: 22px; font-weight: 700; }
+    #status-badge {
+      margin-left: auto;
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--muted);
+      display: inline-block;
+    }
+    .dot.ok { background: var(--accent); }
+
+    /* ── cards ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 18px;
+    }
+    .card h2 {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; }
+    @media (max-width: 700px) {
+      .two-col, .three-col { grid-template-columns: 1fr; }
+    }
+
+    /* ── buttons ── */
+    .btn-row { display: flex; flex-wrap: wrap; gap: 10px; }
+    button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s, opacity .15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    button:disabled { opacity: .45; cursor: default; }
+    .btn-primary   { background: var(--accent);  color: #fff; }
+    .btn-primary:hover:not(:disabled)  { background: var(--accent2); }
+    .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover:not(:disabled) { background: #2a2a2a; }
+    .btn-danger    { background: var(--danger); color: #fff; }
+
+    /* ── trigger status toast ── */
+    #toast {
+      display: none;
+      position: fixed;
+      bottom: 24px; right: 24px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 18px;
+      font-size: 13px;
+      max-width: 320px;
+      z-index: 100;
+      animation: fadein .2s;
+    }
+    @keyframes fadein { from { opacity: 0; transform: translateY(6px); } }
+
+    /* ── stat rows ── */
+    .stat-row { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--border); }
+    .stat-row:last-child { border-bottom: none; }
+    .stat-label { color: var(--muted); }
+    .stat-value { font-weight: 600; }
+
+    /* ── schedule items ── */
+    .sched-item { padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .sched-item:last-child { border-bottom: none; }
+    .sched-name { font-weight: 600; margin-bottom: 2px; }
+    .sched-next { font-size: 12px; color: var(--muted); }
+
+    /* ── genre cluster / mood pills ── */
+    .cluster-grid { display: flex; flex-direction: column; gap: 8px; }
+    .cluster-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 12px;
+      background: var(--surface2);
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+    .cluster-name { flex: 1; font-weight: 600; }
+    .cluster-genres { font-size: 12px; color: var(--muted); flex: 2; }
+    .cluster-count {
+      font-size: 12px;
+      background: #1a3a28;
+      color: var(--accent);
+      padding: 2px 8px;
+      border-radius: 12px;
+      white-space: nowrap;
+    }
+
+    /* ── weight sliders ── */
+    .weight-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; }
+    .weight-row { display: flex; flex-direction: column; gap: 4px; }
+    .weight-label { display: flex; justify-content: space-between; font-size: 12px; }
+    .weight-label span:last-child { color: var(--accent); font-weight: 700; }
+    input[type=range] {
+      width: 100%;
+      accent-color: var(--accent);
+      height: 4px;
+      cursor: pointer;
+    }
+    .weights-footer { margin-top: 16px; display: flex; align-items: center; gap: 12px; }
+    #weight-status { font-size: 12px; color: var(--muted); }
+
+    /* ── history list ── */
+    .history-empty { color: var(--muted); font-size: 13px; }
+    .history-entry {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .history-entry:last-child { border-bottom: none; }
+    .history-ts { color: var(--muted); font-size: 11px; min-width: 120px; }
+    .history-count {
+      margin-left: auto;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* ── spinner ── */
+    .spin { display: inline-block; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── misc ── */
+    .muted { color: var(--muted); }
+    .genre-tag {
+      display: inline-block;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 7px;
+      font-size: 11px;
+      margin: 2px 2px 2px 0;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <span style="font-size:26px">🎵</span>
+  <h1>Orly Jams</h1>
+  <div id="status-badge">
+    <span class="dot" id="status-dot"></span>
+    <span id="status-text">connecting…</span>
+    <span id="lib-size" style="margin-left:8px"></span>
+  </div>
+</header>
+
+<main>
+
+  <!-- Controls -->
+  <div class="card">
+    <h2>Playlists</h2>
+    <div class="btn-row">
+      <button class="btn-primary" onclick="triggerPlaylist('daily')">▶ Daily Jam</button>
+      <button class="btn-primary" onclick="triggerPlaylist('weekly')">▶ Weekly Jam</button>
+      <button class="btn-primary" onclick="triggerPost('/trigger/clusters', 'Genre Mixes')">▶ Genre Mixes</button>
+      <button class="btn-primary" onclick="triggerPost('/trigger/moods', 'Mood Mixes')">▶ Mood Mixes</button>
+      <button class="btn-secondary" onclick="triggerPost('/rescan', 'Library rescan')">↻ Rescan</button>
+    </div>
+  </div>
+
+  <!-- Stats + Schedule -->
+  <div class="two-col">
+    <div class="card">
+      <h2>Library</h2>
+      <div id="stats-content"><span class="muted">Loading…</span></div>
+    </div>
+    <div class="card">
+      <h2>Schedule</h2>
+      <div id="schedule-content"><span class="muted">Loading…</span></div>
+    </div>
+  </div>
+
+  <!-- History -->
+  <div class="two-col">
+    <div class="card">
+      <h2>Daily Jam history</h2>
+      <div id="daily-history"><span class="muted">Loading…</span></div>
+    </div>
+    <div class="card">
+      <h2>Weekly Jam history</h2>
+      <div id="weekly-history"><span class="muted">Loading…</span></div>
+    </div>
+  </div>
+
+  <!-- Clusters + Moods -->
+  <div class="two-col">
+    <div class="card">
+      <h2>Genre Clusters</h2>
+      <div id="clusters-content"><span class="muted">Loading…</span></div>
+    </div>
+    <div class="card">
+      <h2>Mood Mixes</h2>
+      <div id="moods-content"><span class="muted">Loading…</span></div>
+    </div>
+  </div>
+
+  <!-- Scoring Weights -->
+  <div class="card">
+    <h2>Scoring Weights</h2>
+    <div class="weight-grid" id="weight-grid">
+      <span class="muted">Loading…</span>
+    </div>
+    <div class="weights-footer">
+      <button class="btn-primary" onclick="saveWeights()">Save Weights</button>
+      <span id="weight-status"></span>
+    </div>
+  </div>
+
+</main>
+
+<div id="toast"></div>
+
+<script>
+// ── API helpers ──────────────────────────────────────────────────────────────
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, opts);
+  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+  return r.json();
+}
+
+function toast(msg, ms = 3500) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.display = 'block';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.style.display = 'none', ms);
+}
+
+function fmtTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleString(undefined, {
+    month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+}
+
+function timeUntil(iso) {
+  if (!iso) return '—';
+  const diff = new Date(iso) - Date.now();
+  if (diff < 0) return 'overdue';
+  const h = Math.floor(diff / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000);
+  if (h > 47) return `in ${Math.round(h/24)}d`;
+  if (h > 0)  return `in ${h}h ${m}m`;
+  return `in ${m}m`;
+}
+
+// ── triggers ─────────────────────────────────────────────────────────────────
+
+async function triggerPlaylist(type) {
+  try {
+    const d = await api(`/trigger/${type}`, { method: 'POST' });
+    toast(d.message || `${type} started`);
+  } catch (e) { toast('❌ ' + e.message); }
+}
+
+async function triggerPost(path, label) {
+  try {
+    const d = await api(path, { method: 'POST' });
+    toast(d.message || `${label} started`);
+  } catch (e) { toast('❌ ' + e.message); }
+}
+
+// ── health + status ───────────────────────────────────────────────────────────
+
+async function loadHealth() {
+  try {
+    const h = await api('/health');
+    const dot  = document.getElementById('status-dot');
+    const txt  = document.getElementById('status-text');
+    const size = document.getElementById('lib-size');
+
+    dot.className = `dot ${h.status === 'ok' ? 'ok' : ''}`;
+    txt.textContent = h.status === 'ok' ? 'Online' : 'Error';
+    size.textContent = `${h.library_size.toLocaleString()} tracks`;
+
+    // Schedule
+    const nr = h.next_run || {};
+    const lr = h.last_run || {};
+    const schedJobs = [
+      { label: '🎵 Daily Jam',   cron: '06:00 UTC daily',   next: nr.daily_jam,   last: lr.daily },
+      { label: '🗓 Weekly Jam',  cron: 'Mon 00:00 UTC',     next: nr.weekly_jam,  last: lr.weekly },
+      { label: '🎸 Genre Mixes', cron: 'Mon 01:00 UTC',     next: nr.genre_mixes, last: lr.genre_mixes },
+      { label: '🎭 Mood Mixes',  cron: 'Mon 02:00 UTC',     next: nr.mood_mixes,  last: lr.mood_mixes },
+    ];
+    document.getElementById('schedule-content').innerHTML = schedJobs.map(j => `
+      <div class="sched-item">
+        <div class="sched-name">${j.label}</div>
+        <div class="sched-next">
+          Next: ${timeUntil(j.next)} &nbsp;·&nbsp; Last: ${fmtTime(j.last)}
+        </div>
+      </div>
+    `).join('');
+  } catch (e) {
+    document.getElementById('status-text').textContent = 'Offline';
+  }
+}
+
+// ── stats ─────────────────────────────────────────────────────────────────────
+
+async function loadStats() {
+  try {
+    const s = await api('/stats');
+    const top = (s.top_genres || []).slice(0, 6)
+      .map(g => `<span class="genre-tag">${g.genre}</span>`)
+      .join('');
+
+    document.getElementById('stats-content').innerHTML = `
+      <div class="stat-row">
+        <span class="stat-label">Total tracks</span>
+        <span class="stat-value">${(s.total_tracks||0).toLocaleString()}</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Play coverage</span>
+        <span class="stat-value">${s.play_coverage_pct ?? '—'}%</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Avg score</span>
+        <span class="stat-value">${s.avg_score ?? '—'}</span>
+      </div>
+      <div class="stat-row" style="flex-direction:column;gap:6px">
+        <span class="stat-label">Top genres</span>
+        <div>${top || '<span class="muted">—</span>'}</div>
+      </div>
+    `;
+  } catch(e) {
+    document.getElementById('stats-content').innerHTML = '<span class="muted">Unavailable</span>';
+  }
+}
+
+// ── history ───────────────────────────────────────────────────────────────────
+
+async function loadHistory(type, elId) {
+  try {
+    const rows = await api(`/playlist/${type}/history?limit=5`);
+    const el = document.getElementById(elId);
+    if (!rows.length) {
+      el.innerHTML = '<div class="history-empty">No runs yet</div>';
+      return;
+    }
+    el.innerHTML = rows.map(r => `
+      <div class="history-entry">
+        <span class="history-ts">${fmtTime(r.generated_at)}</span>
+        <span class="history-count">${r.track_count} tracks</span>
+      </div>
+    `).join('');
+  } catch(e) {}
+}
+
+// ── clusters ──────────────────────────────────────────────────────────────────
+
+async function loadClusters() {
+  try {
+    const d = await api('/clusters');
+    const el = document.getElementById('clusters-content');
+    if (d.running) {
+      el.innerHTML = '<span class="spin">⏳</span> Generating…';
+      return;
+    }
+    if (!d.clusters || !d.clusters.length) {
+      el.innerHTML = '<div class="muted">No clusters yet — click ▶ Genre Mixes to generate.</div>';
+      return;
+    }
+    el.innerHTML = `<div class="cluster-grid">${d.clusters.map(c => `
+      <div class="cluster-row">
+        <span class="cluster-name">${c.name}</span>
+        <span class="cluster-genres">${(c.genres||[]).join(' · ')}</span>
+        <span class="cluster-count">${c.track_count} tracks</span>
+      </div>
+    `).join('')}</div>`;
+  } catch(e) {
+    document.getElementById('clusters-content').innerHTML = '<span class="muted">Unavailable</span>';
+  }
+}
+
+// ── moods ─────────────────────────────────────────────────────────────────────
+
+async function loadMoods() {
+  try {
+    const d = await api('/moods');
+    const el = document.getElementById('moods-content');
+    if (d.running) {
+      el.innerHTML = '<span class="spin">⏳</span> Generating…';
+      return;
+    }
+    if (!d.playlists || !d.playlists.length) {
+      el.innerHTML = '<div class="muted">No mood mixes yet — click ▶ Mood Mixes to generate.</div>';
+      return;
+    }
+    el.innerHTML = `<div class="cluster-grid">${d.playlists.map(p => `
+      <div class="cluster-row">
+        <span class="cluster-name">${p.name}</span>
+        <span class="cluster-genres">${p.mood}</span>
+        <span class="cluster-count">${p.track_count} tracks</span>
+      </div>
+    `).join('')}</div>`;
+  } catch(e) {
+    document.getElementById('moods-content').innerHTML = '<span class="muted">Unavailable</span>';
+  }
+}
+
+// ── weights ───────────────────────────────────────────────────────────────────
+
+const WEIGHT_KEYS = [
+  { key: 'scoring.weights.play_count',      label: 'Play Count' },
+  { key: 'scoring.weights.recency',         label: 'Recency' },
+  { key: 'scoring.weights.rating',          label: 'Rating' },
+  { key: 'scoring.weights.genre_affinity',  label: 'Genre Affinity' },
+  { key: 'scoring.weights.discovery_bonus', label: 'Discovery Bonus' },
+  { key: 'scoring.weights.lb_boost',        label: 'LB Boost' },
+];
+
+let currentWeights = {};
+
+function renderWeights() {
+  const grid = document.getElementById('weight-grid');
+  grid.innerHTML = WEIGHT_KEYS.map(w => `
+    <div class="weight-row">
+      <div class="weight-label">
+        <span>${w.label}</span>
+        <span id="val-${w.key.split('.').pop()}">${(currentWeights[w.key] ?? 0).toFixed(2)}</span>
+      </div>
+      <input type="range" min="0" max="0.5" step="0.01"
+        value="${currentWeights[w.key] ?? 0}"
+        oninput="onSlider('${w.key}', this.value)"
+      >
+    </div>
+  `).join('');
+}
+
+function onSlider(key, val) {
+  currentWeights[key] = parseFloat(val);
+  const field = key.split('.').pop();
+  const el = document.getElementById(`val-${field}`);
+  if (el) el.textContent = parseFloat(val).toFixed(2);
+}
+
+async function loadWeights() {
+  try {
+    const cfg = await api('/config');
+    const w = cfg.scoring_weights || {};
+    currentWeights = {
+      'scoring.weights.play_count':      w.play_count      ?? 0.27,
+      'scoring.weights.recency':         w.recency         ?? 0.23,
+      'scoring.weights.rating':          w.rating          ?? 0.18,
+      'scoring.weights.genre_affinity':  w.genre_affinity  ?? 0.14,
+      'scoring.weights.discovery_bonus': w.discovery_bonus ?? 0.08,
+      'scoring.weights.lb_boost':        w.lb_boost        ?? 0.10,
+    };
+    renderWeights();
+  } catch(e) {}
+}
+
+async function saveWeights() {
+  try {
+    document.getElementById('weight-status').textContent = 'Saving…';
+    await api('/config', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ updates: currentWeights }),
+    });
+    document.getElementById('weight-status').textContent = '✓ Saved';
+    toast('⚙ Weights updated — will apply on next pipeline run');
+    setTimeout(() => document.getElementById('weight-status').textContent = '', 3000);
+  } catch(e) {
+    document.getElementById('weight-status').textContent = '❌ Save failed';
+  }
+}
+
+// ── bootstrap ─────────────────────────────────────────────────────────────────
+
+async function refresh() {
+  await Promise.all([
+    loadHealth(),
+    loadStats(),
+    loadHistory('daily', 'daily-history'),
+    loadHistory('weekly', 'weekly-history'),
+    loadClusters(),
+    loadMoods(),
+    loadWeights(),
+  ]);
+}
+
+refresh();
+setInterval(refresh, 30000);  // auto-refresh every 30s
+</script>
+</body>
+</html>

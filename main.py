@@ -2,9 +2,12 @@ import logging
 import os
 import sys
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 # ── logging setup ─────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -30,6 +33,10 @@ async def lifespan(app: FastAPI):
     api_router.init(cfg, db)
     scheduler.start(cfg, db)
 
+    port = int(os.environ.get("PORT", 7070))
+    import notifier
+    notifier.start_bot_polling(cfg, port)
+
     log.info("Orly Jams started — library: %s  nav: %s",
              cfg.beets.db_path, cfg.navidrome.url)
 
@@ -48,6 +55,15 @@ app = FastAPI(
 
 from api.router import router
 app.include_router(router)
+
+# Serve the web dashboard at /
+_static_dir = Path(__file__).parent / "static"
+if _static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
+
+    @app.get("/")
+    def dashboard():
+        return FileResponse(str(_static_dir / "index.html"))
 
 
 if __name__ == "__main__":

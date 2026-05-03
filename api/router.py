@@ -33,6 +33,7 @@ def health():
             "daily":       _db.last_run("daily"),
             "weekly":      _db.last_run("weekly"),
             "genre_mixes": _db.last_run("genre_mix"),
+            "mood_mixes":  _db.last_run("mood_mix"),
         },
         "next_run": sch.all_next_runs(),
         "library_size": _db.track_count(),
@@ -60,6 +61,8 @@ _last_result: dict[str, dict] = {}
 
 _clusters_running = False
 _clusters_last_result: list = []
+_moods_running = False
+_moods_last_result: list = []
 
 
 def _trigger_bg(playlist_type: str):
@@ -75,8 +78,9 @@ def _trigger_bg(playlist_type: str):
         _running[playlist_type] = False
 
 
-# NOTE: /trigger/clusters MUST be declared before /trigger/{playlist_type}
-# to avoid FastAPI routing "clusters" as the path parameter.
+# NOTE: all /trigger/<literal> routes MUST appear before /trigger/{playlist_type}
+# to prevent FastAPI from capturing the literal as the path parameter.
+
 @router.post("/trigger/clusters")
 def trigger_clusters(background_tasks: BackgroundTasks):
     global _clusters_running
@@ -96,6 +100,27 @@ def trigger_clusters(background_tasks: BackgroundTasks):
 
     background_tasks.add_task(_do)
     return {"accepted": True, "message": "Genre mix generation started"}
+
+
+@router.post("/trigger/moods")
+def trigger_moods(background_tasks: BackgroundTasks):
+    global _moods_running
+    if _moods_running:
+        return {"accepted": False, "message": "Already running"}
+
+    def _do():
+        global _moods_running, _moods_last_result
+        _moods_running = True
+        try:
+            from pipeline import run_mood_mixes_pipeline
+            _moods_last_result = run_mood_mixes_pipeline(_cfg, _db)
+        except Exception as exc:
+            log.error("Mood mixes trigger failed: %s", exc, exc_info=True)
+        finally:
+            _moods_running = False
+
+    background_tasks.add_task(_do)
+    return {"accepted": True, "message": "Mood mix generation started"}
 
 
 @router.post("/trigger/{playlist_type}")
@@ -162,11 +187,12 @@ def get_config_endpoint():
     cfg = get_config()
     return {
         "scoring_weights": {
-            "play_count":     cfg.scoring.weights.play_count,
-            "recency":        cfg.scoring.weights.recency,
-            "rating":         cfg.scoring.weights.rating,
-            "genre_affinity": cfg.scoring.weights.genre_affinity,
-            "discovery_bonus":cfg.scoring.weights.discovery_bonus,
+            "play_count":      cfg.scoring.weights.play_count,
+            "recency":         cfg.scoring.weights.recency,
+            "rating":          cfg.scoring.weights.rating,
+            "genre_affinity":  cfg.scoring.weights.genre_affinity,
+            "discovery_bonus": cfg.scoring.weights.discovery_bonus,
+            "lb_boost":        cfg.scoring.weights.lb_boost,
         },
         "recency_halflife_days":  cfg.scoring.recency_halflife_days,
         "daily_cron":             cfg.daily.cron,
@@ -244,3 +270,12 @@ def preview_clusters():
         }
     except ImportError:
         return {"error": "scikit-learn not installed — add to requirements.txt"}
+
+
+@router.get("/moods")
+def get_moods():
+    return {
+        "running":   _moods_running,
+        "playlists": _moods_last_result,
+        "last_run":  _db.last_run("mood_mix"),
+    }
